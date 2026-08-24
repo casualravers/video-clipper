@@ -121,15 +121,18 @@ $sourceFolders = @(
 ├─────────────────────────────────────┤
 │                                     │
 │ 📁 Dossier de sortie                │
+│    + AJOUTER UN DOSSIER             │
+│                                     │
+│ 📁 Dossier de sortie                │
 │    C:\Users\vivie\Videos\Mix\edits\ │
 │                                     │
 │ ⏱️  Durée finale (min)              │
 │    80                               │
 │                                     │
-│ 🎵 BPM                              │
+│ 🎵 BPM voulu moyen                  │
 │    150                              │
 │                                     │
-│ 📊 Poids des playlists              │
+│ 📊 Poids des playlists séléctio...  │
 │    ☑ VHS_Glitch_Bank       20%      │
 │    ☑ CARTOON               35%      │
 │    ☑ GLITCH                15%      │
@@ -140,6 +143,7 @@ $sourceFolders = @(
 │    ☑ 8beats   3.2s (35%)            │
 │    ☑ 16beats  6.4s (30%)            │
 │    ☑ 32beats 12.8s (15%)            │
+│    + Ajouter une échantillonnage    │
 │                                     │
 │ [DÉMARRER] [ANNULER]                │
 └─────────────────────────────────────┘
