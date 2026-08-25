@@ -1,17 +1,20 @@
 # ======== CONFIGURATION ========
-$ffmpegPath = "C:\Users\vivie\Videos\Mix\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
-$ffprobePath = "C:\Users\vivie\Videos\Mix\ffmpeg-8.0.1-essentials_build\bin\ffprobe.exe"
+. "$PSScriptRoot\resolve_tools.ps1"
+$ffmpegPath = $FfmpegPath
+$ffprobePath = $FfprobePath
 
 $finalVideoDuration = 80   # 80 minutes
-$editsFolder = "C:\Users\vivie\Videos\Mix\edits\Projet_VHS_Glitch_ALL_poids"
+$editsFolder = Join-Path $MixHome "edits\Projet_VHS_Glitch_ALL_poids"
 
-# DOSSIERS SOURCES AVEC POIDS (0.0 a 1.0)
+# DOSSIERS SOURCES AVEC POIDS (0.0 a 1.0) - par defaut sous $MixHome\downloads\...
+# (voir resolve_tools.ps1), a adapter aux dossiers reellement telecharges.
 # Plus le poids est haut, plus on prend de videos de ce dossier
+$downloadsDir = Join-Path $MixHome "downloads"
 $sourceFolders = @(
-    @{ path = "C:\Users\vivie\Videos\Mix\VHS_Glitch_Bank"; weight = 0.20 },
-    @{ path = "C:\Users\vivie\Videos\Mix\Casual_Ravers - CARTOON"; weight = 0.35 },
-    @{ path = "C:\Users\vivie\Videos\Mix\Casual_Ravers - GLITCH"; weight = 0.15 },
-    @{ path = "C:\Users\vivie\Videos\Mix\Casual_Ravers - RANDOM"; weight = 0.30 }
+    @{ path = Join-Path $downloadsDir "VHS_Glitch_Bank"; weight = 0.20 },
+    @{ path = Join-Path $downloadsDir "Casual_Ravers - CARTOON"; weight = 0.35 },
+    @{ path = Join-Path $downloadsDir "Casual_Ravers - GLITCH"; weight = 0.15 },
+    @{ path = Join-Path $downloadsDir "Casual_Ravers - RANDOM"; weight = 0.30 }
 )
 
 # Parametres pour eviter intro/outro

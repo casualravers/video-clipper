@@ -1,0 +1,197 @@
+"""Weighted-random, BPM-synced clip cutting + concatenation. Ports cut_clips_random.ps1."""
+from __future__ import annotations
+
+import math
+import random
+import threading
+import time
+from pathlib import Path
+from typing import Callable
+
+import config as app_config  # gui/config.py, absolute import (gui/ is on sys.path)
+
+from . import ffmpeg_utils
+
+
+def weighted_choice(items: list[dict], weight_key: str, rng: random.Random) -> dict:
+    """Cumulative-probability walk, mirroring Get-RandomFolder / Get-RandomClipType."""
+    r = rng.random()
+    cumulative = 0.0
+    for item in items:
+        cumulative += float(item.get(weight_key, 0))
+        if r <= cumulative:
+            return item
+    return items[-1]
+
+
+def _list_source_videos(folder_path: str) -> list[Path]:
+    # folder_path is the raw config value and may still contain %USERPROFILE%/relative
+    # placeholders (e.g. "%USERPROFILE%/Videos/.../organic") — must be expanded/resolved
+    # the same way editsFolder/baseDir are, or it silently matches nothing.
+    folder = app_config.resolve_path(folder_path)
+    if not folder.is_dir():
+        return []
+    return list(folder.glob("*.mp4"))
+
+
+def list_video_counts(paths: list[str]) -> dict[str, int]:
+    return {p: len(_list_source_videos(p)) for p in paths}
+
+
+def run_generate_job(
+    config: dict,
+    tool_paths: dict,
+    on_log: Callable[[str], None],
+    on_progress: Callable[[float, str], None],
+    cancel_event: threading.Event,
+) -> dict:
+    gen = config["generate"]
+    source_folders = [f for f in gen.get("sourceFolders", []) if f.get("path")]
+    if not source_folders:
+        raise ValueError("Aucun dossier source configuré.")
+
+    bpm = float(gen["bpm"])
+    beat_duration = 60.0 / bpm
+    clip_types = gen.get("clipTypes", [])
+    if not clip_types:
+        raise ValueError("Aucun type de clip configuré.")
+    resolved_clip_types = [
+        {**ct, "duration": round(beat_duration * float(ct["beats"]), 2)}
+        for ct in clip_types
+    ]
+
+    edits_folder = app_config.resolve_path(gen["editsFolder"])
+    clips_folder = edits_folder / "clips_normalized"
+    ffmpeg_utils.ensure_dir(clips_folder)
+
+    ffmpeg_path = tool_paths["ffmpeg"]
+    ffprobe_path = tool_paths["ffprobe"]
+
+    skip_start = float(gen["skipStart"])
+    skip_end = float(gen["skipEnd"])
+    width, height, fps = int(gen["width"]), int(gen["height"]), int(gen["fps"])
+    target_seconds = float(gen["finalVideoDurationMinutes"]) * 60
+
+    videos_by_folder = {f["path"]: _list_source_videos(f["path"]) for f in source_folders}
+    total_videos = sum(len(v) for v in videos_by_folder.values())
+    if total_videos == 0:
+        raise ValueError("Aucune vidéo .mp4 trouvée dans les dossiers sources.")
+
+    on_log(f"[INFO] BPM {bpm} — durée d'un beat {beat_duration:.2f}s")
+    on_log(f"[INFO] {total_videos} vidéos disponibles dans {len(source_folders)} dossier(s)")
+
+    rng = random.Random()
+    cuts: list[str] = []
+    accumulated = 0.0
+    clip_index = 0
+    start_time = time.time()
+
+    while accumulated < target_seconds:
+        if cancel_event.is_set():
+            raise ffmpeg_utils.CancelledError()
+
+        folder = weighted_choice(source_folders, "weight", rng)
+        folder_videos = videos_by_folder.get(folder["path"], [])
+        if not folder_videos:
+            continue
+
+        video = rng.choice(folder_videos)
+
+        duration = ffmpeg_utils.probe_duration(ffprobe_path, str(video))
+        if not duration:
+            continue
+
+        clip_type = weighted_choice(resolved_clip_types, "probability", rng)
+        clip_duration = clip_type["duration"]
+
+        min_viable = skip_start + clip_duration + skip_end + 5
+        if duration <= min_viable:
+            continue
+
+        start_min = int(skip_start)
+        start_max = math.floor(duration - clip_duration - skip_end)
+        if start_max <= start_min:
+            continue
+
+        # PowerShell's Get-Random -Minimum -Maximum is max-exclusive, matching randrange (not randint).
+        start = rng.randrange(start_min, start_max)
+
+        clip_name = clips_folder / f"clip_{clip_index:04d}.mp4"
+
+        if clip_index % 10 == 0:
+            elapsed_min = round(accumulated)
+            on_log(
+                f"[DECOUPE] Clip {clip_index + 1} [{clip_type['name']} - {clip_duration}s] "
+                f"(Progression : {elapsed_min}s / {int(target_seconds)}s)"
+            )
+
+        vf = (
+            f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,fps={fps}"
+        )
+        cmd = [
+            ffmpeg_path, "-y",
+            "-ss", str(start), "-t", str(clip_duration),
+            "-i", str(video),
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k",
+            str(clip_name),
+        ]
+
+        try:
+            ffmpeg_utils.run(cmd, lambda _line: None, cancel_event)
+        except ffmpeg_utils.CancelledError:
+            raise
+
+        if clip_name.exists():
+            cuts.append(str(clip_name))
+            accumulated += clip_duration
+            clip_index += 1
+            on_progress(min(accumulated / target_seconds, 1.0), f"{accumulated / 60:.1f} min / {target_seconds / 60:.0f} min — {len(cuts)} clips")
+        else:
+            on_log(f"  [ERREUR] Clip {clip_index} non créé")
+
+    if not cuts:
+        raise ValueError("Aucun clip créé.")
+
+    on_log("")
+    on_log(f"[CONCATENATION] {len(cuts)} clips, {accumulated / 60:.1f} minutes")
+
+    concat_file = edits_folder / "concat_list.txt"
+    with open(concat_file, "w", encoding="utf-8", newline="\n") as f:
+        for clip in cuts:
+            f.write(f"file '{clip}'\n")
+
+    final_output = edits_folder / "final_mix.mp4"
+    ffmpeg_utils.run(
+        [ffmpeg_path, "-y", "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", "copy", str(final_output)],
+        on_log,
+        cancel_event,
+    )
+
+    if not final_output.exists():
+        raise ValueError("Échec de la concaténation finale.")
+
+    final_duration = ffmpeg_utils.probe_duration(ffprobe_path, str(final_output)) or 0.0
+    elapsed = time.time() - start_time
+    on_log(f"[OK] Vidéo créée : {final_output} ({final_duration / 60:.1f} min, {elapsed / 60:.1f} min de traitement)")
+
+    return {
+        "outputPath": str(final_output),
+        "clipCount": len(cuts),
+        "durationSec": final_duration,
+        "clipsFolder": str(clips_folder),
+        "concatFile": str(concat_file),
+    }
+
+
+def delete_temp_clips(clips_folder: str, concat_file: str) -> None:
+    import shutil
+
+    folder = Path(clips_folder)
+    if folder.exists():
+        shutil.rmtree(folder, ignore_errors=True)
+    concat_path = Path(concat_file)
+    if concat_path.exists():
+        concat_path.unlink(missing_ok=True)

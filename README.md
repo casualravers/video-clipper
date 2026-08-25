@@ -4,13 +4,28 @@ Guide complet pour générer des vidéos VHS Glitch randomisées avec PowerShell
 
 ---
 
+## 🖥️ Interface Graphique
+
+Une GUI desktop (Python + pywebview) remplace maintenant l'édition manuelle des scripts `.ps1` : 3 onglets (Téléchargement, Génération, Effet Glitch), configuration sauvegardée dans `config.json`, progression et logs en direct.
+
+```powershell
+py -m pip install -r requirements.txt   # une seule fois
+py gui\app.py                           # ou double-clic sur run_gui.bat
+```
+
+Les scripts `.ps1` ci-dessous restent utilisables tels quels pour un usage en ligne de commande — voir [CLAUDE.md](CLAUDE.md) pour le détail de l'architecture de la GUI.
+
+---
+
 ## ⚙️ Installation & Setup
 
 ### Prérequis
 
-- **FFmpeg** : `ffmpeg-8.0.1-essentials_build` installé à `C:\Users\vivie\Videos\Mix\`
-- **yt-dlp** : `yt-dlp.exe` dans `C:\Users\vivie\Videos\Mix\`
+- **FFmpeg** : soit le dossier `ffmpeg-8.0.1-essentials_build` à la racine du repo (à côté des scripts), soit déjà installé et accessible dans le PATH système (winget, choco, scoop...) — détecté automatiquement dans les deux cas, aucun chemin à modifier.
+- **yt-dlp** : `yt-dlp.exe` est déjà fourni à la racine du repo ; sinon, une installation dans le PATH système est aussi détectée automatiquement.
 - **PowerShell** : Version 5.0 ou supérieure
+
+Les dossiers de téléchargement/sortie par défaut sont créés sous `%USERPROFILE%\Videos\VHS-Glitch-Mix\` (scripts comme GUI) — rien à configurer pour un premier essai. Modifiable par script en éditant la variable correspondante, ou globalement en définissant `$env:VHS_MIX_HOME` avant de lancer un script `.ps1`.
 
 ### Configuration PowerShell
 
@@ -24,21 +39,23 @@ Répondez **Y** (Yes).
 
 ---
 
-## 🚀 Démarrage Rapide
+## 🚀 Démarrage Rapide (usage avancé — scripts individuels)
+
+> La GUI (section ci-dessus) couvre ce même workflow avec une interface graphique. Cette section reste utile pour un usage en ligne de commande ou pour comprendre/modifier la logique sous-jacente.
 
 ### Étape 1 : Télécharger les playlists
 
 ```powershell
-.\download_playlists_480p.ps1
+.\sanitize_video_names.ps1
 ```
 
 **Ce que ça fait** :
-- Télécharge 4 playlists YouTube en 480p
+- Télécharge la/les playlist(s) YouTube configurées en 480p
 - Crée les dossiers automatiquement
 - Nettoie les noms (accents, caractères spéciaux)
 - ⏱️ Durée : 30-60 minutes
 
-**Playlists téléchargées** :
+**Exemple de configuration multi-playlists** (les 3 premières sont commentées par défaut dans le script — seule `Casual_Ravers - ORGANIC` est active) :
 ```
 VHS_Glitch_Bank         (20% utilisation)
 Casual_Ravers - CARTOON (35% utilisation)
@@ -68,13 +85,13 @@ Casual_Ravers - RANDOM  (30% utilisation)
 ```
 
 - ⏱️ Durée : 30-45 minutes
-- 📁 Sortie : `C:\Users\vivie\Videos\Mix\edits\Projet_VHS_Glitch_ALL_poids\final_mix.mp4`
+- 📁 Sortie : `%USERPROFILE%\Videos\VHS-Glitch-Mix\edits\Projet_VHS_Glitch_ALL_poids\final_mix.mp4`
 
 ---
 
 ## 🎞️ Scripts Additionnels (Optionnels/Obsolètes)
 
-- **`cut_clips_random_10s.ps1`** - Génère 60 min de clips 10s fixes (sans sync BPM) *(alternative pour source unique)*
+- **`cut_clips_10s.ps1`** - Génère 60 min de clips 10s fixes (sans sync BPM) *(alternative pour source unique)*
 - **`sanitize_video_names.ps1`** - Nettoie les noms manuellement *(déjà inclus dans le download)*
 - **`add_glitch_effect.ps1`** - Effet glitch post-production *(en test, non recommandé)*
 
@@ -97,11 +114,12 @@ $fps = 30                       # Framerate
 ### Poids des dossiers
 
 ```powershell
+# $MixHome vient de resolve_tools.ps1 — %USERPROFILE%\Videos\VHS-Glitch-Mix par defaut
 $sourceFolders = @(
-    @{ path = "C:\Users\vivie\Videos\Mix\VHS_Glitch_Bank"; weight = 0.20 },
-    @{ path = "C:\Users\vivie\Videos\Mix\Casual_Ravers - CARTOON"; weight = 0.35 },
-    @{ path = "C:\Users\vivie\Videos\Mix\Casual_Ravers - GLITCH"; weight = 0.15 },
-    @{ path = "C:\Users\vivie\Videos\Mix\Casual_Ravers - RANDOM"; weight = 0.30 }
+    @{ path = Join-Path $downloadsDir "VHS_Glitch_Bank"; weight = 0.20 },
+    @{ path = Join-Path $downloadsDir "Casual_Ravers - CARTOON"; weight = 0.35 },
+    @{ path = Join-Path $downloadsDir "Casual_Ravers - GLITCH"; weight = 0.15 },
+    @{ path = Join-Path $downloadsDir "Casual_Ravers - RANDOM"; weight = 0.30 }
 )
 ```
 
@@ -109,9 +127,11 @@ $sourceFolders = @(
 
 ## 🚀 Améliorations à Venir
 
-### 1. Interface de Configuration Interactive
+### 1. Interface de Configuration Interactive ✅ Fait
 
-**Objectif** : Remplacer la modification manuelle de fichiers PS1 par une **interface graphique** ou **menu interactif**.
+> Implémenté dans `gui/` (Python + pywebview, voir la section "Interface Graphique" en haut de ce document et [CLAUDE.md](CLAUDE.md)). Formulaire complet (dossiers pondérés, types de clips, BPM, etc.), pas de menu `Out-GridView` — une vraie fenêtre desktop avec logs/progression en direct à la place.
+
+**Objectif initial** : Remplacer la modification manuelle de fichiers PS1 par une **interface graphique** ou **menu interactif**.
 
 **À configurer facilement** :
 
@@ -156,7 +176,9 @@ $sourceFolders = @(
 
 ---
 
-### 2. Gestion des Téléchargements sans Stockage Local
+### 2. Gestion des Téléchargements sans Stockage Local — toujours hors périmètre
+
+> Non implémenté par la GUI actuelle : le téléchargement des playlists se fait toujours intégralement sur disque local (`config.json` → `download.baseDir`), comme avec les scripts `.ps1` d'origine. Les options streaming/cache/CDN ci-dessous restent des pistes futures.
 
 **Problème actuel** : Les vidéos YouTube prennent ~50-100GB d'espace disque.
 
@@ -201,7 +223,9 @@ $sourceFolders = @(
 
 ---
 
-### 3. Proposition d'Architecture Améliorée
+### 3. Proposition d'Architecture Améliorée ✅ Largement implémenté
+
+> La structure réelle (`gui/` + `config.json` à la racine) suit cette proposition d'assez près — voir [CLAUDE.md](CLAUDE.md) pour le détail exact. Différences : Python plutôt que PowerShell pour la GUI, pas de dossier `presets/` (pas de présets sauvegardés pour l'instant), pas de `cleanup.ps1` séparé (nettoyage des clips temporaires via un bouton dans l'onglet Génération).
 
 ```
 vhs-glitch-generator/
@@ -229,16 +253,16 @@ vhs-glitch-generator/
 
 ### 4. Checklist des Améliorations
 
-- [ ] GUI PowerShell avec formulaire de configuration
-- [ ] Charger/sauvegarder configurations en JSON
-- [ ] Implémenter cache temporaire pour YouTube
-- [ ] Auto-nettoyage après génération
-- [ ] Barre de progression améliorée
-- [ ] Export en plusieurs formats (MP4, WebM, ProRes)
-- [ ] Support des sous-titres/métadonnées
-- [ ] Multi-threading pour plus de vitesse
-- [ ] Logs détaillés en fichier
-- [ ] Support de playlists Vimeo/autres
+- [x] GUI avec formulaire de configuration *(Python + pywebview plutôt que PowerShell, voir `gui/`)*
+- [x] Charger/sauvegarder configurations en JSON
+- [ ] Implémenter cache temporaire pour YouTube — hors périmètre
+- [x] Auto-nettoyage après génération *(bouton manuel dans l'onglet Génération, pas automatique)*
+- [x] Barre de progression améliorée
+- [ ] Export en plusieurs formats (MP4, WebM, ProRes) — hors périmètre
+- [ ] Support des sous-titres/métadonnées — hors périmètre
+- [ ] Multi-threading pour plus de vitesse — hors périmètre
+- [ ] Logs détaillés en fichier — hors périmètre (logs affichés en direct dans la GUI, non persistés)
+- [ ] Support de playlists Vimeo/autres — hors périmètre
 
 ---
 
@@ -267,19 +291,9 @@ Téléchargez depuis : https://ffmpeg.org/download.html
 
 | Étape | Script | Durée |
 |-------|--------|-------|
-| 1️⃣ Télécharger | `download_playlists_480p.ps1` | 30-60 min |
+| 1️⃣ Télécharger | `sanitize_video_names.ps1` | 30-60 min |
 | 2️⃣ Générer | `cut_clips_random.ps1` | 30-45 min |
 | ✅ Résultat | `final_mix.mp4` | 80 min de vidéo |
 
-**Temps total** : ~1h30 à 2h de traitement
-
----
-
-## 🎯 Prochaine Étape
-
-Voulez-vous que je développe :
-1. **GUI de configuration** (PowerShell WinForms)
-2. **Cache temporaire** (téléchargement intelligent)
-3. **Export de presets** (sauvegarder vos configs)
-4. **Autre** ?
+**Temps total** : ~1h30 à 2h de traitement (ou via la GUI, voir en haut de ce document)
 

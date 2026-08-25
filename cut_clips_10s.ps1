@@ -1,12 +1,14 @@
 # ======== CONFIGURATION ========
-$ffmpegPath = "C:\Users\vivie\Videos\Mix\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
-$ffprobePath = "C:\Users\vivie\Videos\Mix\ffmpeg-8.0.1-essentials_build\bin\ffprobe.exe"
+. "$PSScriptRoot\resolve_tools.ps1"
+$ffmpegPath = $FfmpegPath
+$ffprobePath = $FfprobePath
 
 $finalVideoDuration = 60   # 60 minutes
-$editsFolder = "C:\Users\vivie\Videos\Mix\edits\Clips_10s_David"
+$editsFolder = Join-Path $MixHome "edits\Clips_10s"
 
-# DOSSIER SOURCE
-$sourceFolder = "C:\Users\vivie\Videos\Mix\Casual_Ravers - ORGANIC"
+# DOSSIER SOURCE - par defaut sous $MixHome\downloads\... (voir resolve_tools.ps1),
+# a adapter au dossier reellement telecharge.
+$sourceFolder = Join-Path $MixHome "downloads\Casual_Ravers - ORGANIC"
 
 # Parametres pour eviter intro/outro
 $skipStart = 5

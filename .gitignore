@@ -1,1 +1,4 @@
 ffmpeg-8.0.1-essentials_build/
+config.json
+__pycache__/
+*.pyc

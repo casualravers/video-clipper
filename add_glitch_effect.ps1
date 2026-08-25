@@ -1,11 +1,13 @@
 # ======== CONFIGURATION ========
-$ffmpegPath = "C:\Users\vivie\Videos\Mix\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe"
+. "$PSScriptRoot\resolve_tools.ps1"
+$ffmpegPath = $FfmpegPath
 
-# VIDEO D'ENTREE
-$inputVideo = "C:\Users\vivie\Videos\Mix\edits\Projet_VHS_Glitch_ALL_poids\final_mix.mp4"
+# VIDEO D'ENTREE - par defaut la sortie de cut_clips_random.ps1 sous $MixHome (voir resolve_tools.ps1)
+$editsFolder = Join-Path $MixHome "edits\Projet_VHS_Glitch_ALL_poids"
+$inputVideo = Join-Path $editsFolder "final_mix.mp4"
 
 # VIDEO DE SORTIE
-$outputVideo = "C:\Users\vivie\Videos\Mix\edits\Projet_VHS_Glitch_ALL_poids\final_mix_glitch.mp4"
+$outputVideo = Join-Path $editsFolder "final_mix_glitch.mp4"
 
 # ======== EFFET GLITCH LEGER ========
 # Combine :

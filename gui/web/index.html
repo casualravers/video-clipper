@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>VHS Glitch Generator</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="appbar">
+  <div class="appbar-title">
+    <span class="glyph">▚</span>
+    <h1>VHS <span class="accent">Glitch</span> Generator</h1>
+  </div>
+  <button id="settingsBtn" class="icon-btn" title="Paramètres">
+    <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L14.9 3h-4l-.4 2.5a8 8 0 0 0-1.7 1l-2.5-1-2 3.4L6.4 11a8 8 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1L9.1 21h4l.4-2.5a8 8 0 0 0 1.7-1l2.5 1 2-3.4L19.4 13Z"/></svg>
+  </button>
+</header>
+
+<div id="prereqBanner" class="banner banner-warn" hidden>
+  <span id="prereqBannerText"></span>
+</div>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="download" role="tab">Téléchargement</button>
+  <button class="tab" data-tab="generate" role="tab">Génération</button>
+  <button class="tab" data-tab="glitch" role="tab">Effet Glitch</button>
+</nav>
+
+<main class="content">
+
+  <!-- ============ TAB: DOWNLOAD ============ -->
+  <section class="panel active" id="panel-download">
+    <div class="card">
+      <div class="card-head">
+        <h2>Playlists à télécharger</h2>
+        <button class="btn btn-ghost" id="addPlaylistBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Ajouter une playlist
+        </button>
+      </div>
+      <div id="playlistRows" class="rows"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Dossier de téléchargement</h2></div>
+      <div class="field-row">
+        <input type="text" id="downloadBaseDir" class="text-input" placeholder="%USERPROFILE%\Videos\VHS-Glitch-Mix\downloads" />
+        <button class="btn btn-ghost browse-btn" data-target="downloadBaseDir" data-kind="folder">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg> Parcourir
+        </button>
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="downloadFormat">Format yt-dlp <span class="tooltip info-icon" data-tooltip="Sélecteur de format yt-dlp. La valeur par défaut prend le meilleur flux vidéo+audio ≤480p et les fusionne — évite les erreurs « format not available » que YouTube provoque désormais avec un sélecteur trop simple.">i</span></label>
+        <input type="text" id="downloadFormat" class="text-input" placeholder="bv*[height&lt;=480]+ba/b[height&lt;=480]" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: GENERATE ============ -->
+  <section class="panel" id="panel-generate">
+    <div class="card">
+      <div class="card-head">
+        <h2>Dossiers sources <span class="tooltip info-icon" data-tooltip="Un clip est tiré au hasard depuis l'un de ces dossiers, choisi selon son poids — plus le poids est élevé, plus ce dossier fournit de clips dans le mix final. La somme doit faire 100% (sinon normalisé automatiquement à l'enregistrement).">i</span> <span class="weight-total" id="folderWeightTotal">100%</span></h2>
+        <button class="btn btn-ghost" id="addFolderBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Ajouter un dossier
+        </button>
+      </div>
+      <div id="folderRows" class="rows"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Types de clips (BPM) <span class="tooltip info-icon" data-tooltip="Chaque clip découpé tire au hasard l'une de ces durées (en battements, selon le BPM), pondérée par sa probabilité. La somme des probabilités doit faire 100%.">i</span> <span class="weight-total" id="clipWeightTotal">100%</span></h2>
+        <button class="btn btn-ghost" id="addClipTypeBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Ajouter un échantillonnage
+        </button>
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="bpmInput">BPM <span class="tooltip info-icon" data-tooltip="Tempo de référence (battements par minute). Sert à calculer la durée de chaque type de clip ci-dessous : durée = battements × 60 / BPM.">i</span></label>
+        <input type="number" id="bpmInput" class="number-input" min="1" step="1" />
+      </div>
+      <div id="clipTypeRows" class="rows"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Paramètres de sortie</h2></div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="finalDuration">Durée finale (minutes)</label>
+          <input type="number" id="finalDuration" class="number-input" min="1" />
+        </div>
+        <div class="field">
+          <label for="skipStart">Skip début (s) <span class="tooltip info-icon" data-tooltip="Nombre de secondes ignorées au tout début de chaque vidéo source (évite les intros/génériques répétitifs).">i</span></label>
+          <input type="number" id="skipStart" class="number-input" min="0" />
+        </div>
+        <div class="field">
+          <label for="skipEnd">Skip fin (s) <span class="tooltip info-icon" data-tooltip="Nombre de secondes ignorées à la toute fin de chaque vidéo source (évite les outros/génériques répétitifs).">i</span></label>
+          <input type="number" id="skipEnd" class="number-input" min="0" />
+        </div>
+        <div class="field">
+          <label for="genWidth">Largeur</label>
+          <input type="number" id="genWidth" class="number-input" min="1" />
+        </div>
+        <div class="field">
+          <label for="genHeight">Hauteur</label>
+          <input type="number" id="genHeight" class="number-input" min="1" />
+        </div>
+        <div class="field">
+          <label for="genFps">FPS</label>
+          <input type="number" id="genFps" class="number-input" min="1" />
+        </div>
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="editsFolder">Dossier de sortie</label>
+        <input type="text" id="editsFolder" class="text-input" />
+        <button class="btn btn-ghost browse-btn" data-target="editsFolder" data-kind="folder">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg> Parcourir
+        </button>
+      </div>
+      <div class="field-row" id="cleanupRow" hidden>
+        <button class="btn btn-ghost" id="deleteTempBtn">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg> Supprimer les clips temporaires
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: GLITCH ============ -->
+  <section class="panel" id="panel-glitch">
+    <div class="card">
+      <div class="card-head"><h2>Vidéo d'entrée</h2></div>
+      <div class="field-row">
+        <input type="text" id="glitchInput" class="text-input" placeholder="Chemin de la vidéo à traiter" />
+        <button class="btn btn-ghost browse-btn" data-target="glitchInput" data-kind="file">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg> Parcourir
+        </button>
+      </div>
+      <div class="field-row">
+        <label class="field-label" for="effectSelect">Effet <span class="tooltip info-icon" data-tooltip="Glitch : scan lines VHS + léger bruit + décalage de teinte. Datamosh : mélange deux versions de l'image (contraste/luminosité altérés) pour un effet de corruption plus prononcé.">i</span></label>
+        <select id="effectSelect" class="text-input">
+          <option value="glitch">Glitch (scan lines + bruit)</option>
+          <option value="datamosh">Datamosh (blend)</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="glitchWidth">Largeur</label>
+          <input type="number" id="glitchWidth" class="number-input" min="1" />
+        </div>
+        <div class="field">
+          <label for="glitchHeight">Hauteur</label>
+          <input type="number" id="glitchHeight" class="number-input" min="1" />
+        </div>
+        <div class="field">
+          <label for="glitchFps">FPS</label>
+          <input type="number" id="glitchFps" class="number-input" min="1" />
+        </div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">Sortie</label>
+        <span id="glitchOutputPath" class="output-path muted">—</span>
+        <button class="btn btn-ghost" id="openGlitchOutputBtn" hidden>
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg> Ouvrir le dossier
+        </button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="runbar">
+  <button id="startBtn" class="btn btn-primary">
+    <svg viewBox="0 0 24 24"><path d="M7 5v14l12-7L7 5Z"/></svg> <span id="startBtnLabel">Télécharger</span>
+  </button>
+  <button id="cancelBtn" class="btn btn-danger" hidden>
+    <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg> Annuler
+  </button>
+  <div class="progress-wrap">
+    <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+    <span id="progressLabel" class="progress-label"></span>
+  </div>
+</footer>
+
+<pre id="logPanel" class="log-panel" aria-live="polite"></pre>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div id="settingsModal" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Paramètres</h2>
+      <button class="icon-btn" id="closeSettingsBtn">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p class="muted settings-hint">
+      Laissez vide pour la détection automatique (dossier bundlé du repo, sinon PATH système).
+      Ne renseignez un chemin ici que pour forcer une installation précise — pointez vers le
+      <strong>fichier .exe</strong>, pas son dossier.
+    </p>
+
+    <div class="field-row">
+      <label class="field-label" for="ffmpegPathInput">ffmpeg.exe</label>
+      <input type="text" id="ffmpegPathInput" class="text-input" />
+      <button class="icon-btn settings-browse-btn" data-target="ffmpegPathInput" title="Parcourir">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>
+      </button>
+      <span class="status-dot" id="ffmpegStatus"></span>
+    </div>
+    <div class="resolved-path muted" id="ffmpegResolved">—</div>
+
+    <div class="field-row">
+      <label class="field-label" for="ffprobePathInput">ffprobe.exe</label>
+      <input type="text" id="ffprobePathInput" class="text-input" />
+      <button class="icon-btn settings-browse-btn" data-target="ffprobePathInput" title="Parcourir">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>
+      </button>
+      <span class="status-dot" id="ffprobeStatus"></span>
+    </div>
+    <div class="resolved-path muted" id="ffprobeResolved">—</div>
+
+    <div class="field-row">
+      <label class="field-label" for="ytDlpPathInput">yt-dlp.exe</label>
+      <input type="text" id="ytDlpPathInput" class="text-input" />
+      <button class="icon-btn settings-browse-btn" data-target="ytDlpPathInput" title="Parcourir">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>
+      </button>
+      <span class="status-dot" id="ytDlpStatus"></span>
+    </div>
+    <div class="resolved-path muted" id="ytDlpResolved">—</div>
+
+    <div class="field-row">
+      <button class="btn btn-ghost" id="updateYtDlpBtn">Mettre à jour yt-dlp</button>
+      <span class="muted" id="updateYtDlpStatus">yt-dlp doit être mis à jour régulièrement — YouTube change souvent, une version de quelques mois peut échouer avec des erreurs 403.</span>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="recheckPrereqsBtn">Revérifier</button>
+      <button class="btn btn-primary" id="saveSettingsBtn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<template id="playlistRowTpl">
+  <div class="row" data-row="playlist">
+    <input type="text" class="text-input" data-field="playlistUrl" placeholder="URL de la playlist YouTube" />
+    <input type="text" class="text-input row-narrow" data-field="folderName" placeholder="Nom du dossier" />
+    <button class="icon-btn remove-row" title="Supprimer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+</template>
+
+<template id="folderRowTpl">
+  <div class="row" data-row="folder">
+    <input type="text" class="text-input" data-field="path" placeholder="Chemin du dossier source" />
+    <button class="icon-btn browse-row-btn" data-kind="folder" title="Parcourir">
+      <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>
+    </button>
+    <input type="number" class="number-input row-narrow" data-field="weight" step="0.01" min="0" max="1" />
+    <span class="video-count muted" data-video-count>—</span>
+    <button class="icon-btn remove-row" title="Supprimer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+</template>
+
+<template id="clipTypeRowTpl">
+  <div class="row" data-row="clipType">
+    <input type="text" class="text-input row-narrow" data-field="name" placeholder="Nom" />
+    <input type="number" class="number-input row-narrow" data-field="beats" step="1" min="1" title="Battements" />
+    <span class="clip-duration muted" data-clip-duration>—</span>
+    <input type="number" class="number-input row-narrow" data-field="probability" step="0.01" min="0" max="1" />
+    <button class="icon-btn remove-row" title="Supprimer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>
