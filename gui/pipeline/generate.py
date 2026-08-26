@@ -38,6 +38,19 @@ def list_video_counts(paths: list[str]) -> dict[str, int]:
     return {p: len(_list_source_videos(p)) for p in paths}
 
 
+def sanitize_output_filename(raw_name: str | None) -> str:
+    """User-editable output filename: strip path separators (it's a filename, not a path),
+    fall back to the default if empty, and force a .mp4 extension since that's the only
+    container this pipeline ever produces."""
+    name = (raw_name or "").strip()
+    name = Path(name).name  # drop any path components the user may have typed
+    if not name:
+        name = "final_mix.mp4"
+    if not name.lower().endswith(".mp4"):
+        name += ".mp4"
+    return name
+
+
 def run_generate_job(
     config: dict,
     tool_paths: dict,
@@ -85,6 +98,7 @@ def run_generate_job(
     accumulated = 0.0
     clip_index = 0
     start_time = time.time()
+    duration_cache: dict[Path, float] = {}
 
     while accumulated < target_seconds:
         if cancel_event.is_set():
@@ -97,7 +111,12 @@ def run_generate_job(
 
         video = rng.choice(folder_videos)
 
-        duration = ffmpeg_utils.probe_duration(ffprobe_path, str(video))
+        if video in duration_cache:
+            duration = duration_cache[video]
+        else:
+            duration = ffmpeg_utils.probe_duration(ffprobe_path, str(video))
+            if duration:
+                duration_cache[video] = duration
         if not duration:
             continue
 
@@ -135,7 +154,7 @@ def run_generate_job(
             "-i", str(video),
             "-vf", vf,
             "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "128k",
+            "-an",  # the final mix has no audio track — skip decoding/encoding it entirely
             str(clip_name),
         ]
 
@@ -163,7 +182,10 @@ def run_generate_job(
         for clip in cuts:
             f.write(f"file '{clip}'\n")
 
-    final_output = edits_folder / "final_mix.mp4"
+    output_filename = sanitize_output_filename(gen.get("outputFileName"))
+    final_output = ffmpeg_utils.unique_path(edits_folder / output_filename)
+    if final_output.name != output_filename:
+        on_log(f"[INFO] Le fichier existait déjà, sortie renommée : {final_output.name}")
     ffmpeg_utils.run(
         [ffmpeg_path, "-y", "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", "copy", str(final_output)],
         on_log,

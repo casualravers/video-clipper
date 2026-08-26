@@ -80,6 +80,10 @@
       state.config.generate.editsFolder = e.target.value;
       scheduleSave();
     });
+    $("#outputFileName").addEventListener("input", (e) => {
+      state.config.generate.outputFileName = e.target.value;
+      scheduleSave();
+    });
 
     $("#effectSelect").addEventListener("change", (e) => {
       state.config.glitch.effect = e.target.value;
@@ -246,6 +250,7 @@
     $("#genHeight").value = c.generate.height;
     $("#genFps").value = c.generate.fps;
     $("#editsFolder").value = c.generate.editsFolder;
+    $("#outputFileName").value = c.generate.outputFileName;
     renderFolders();
     renderClipTypes();
 
@@ -295,13 +300,13 @@
     state.config.generate.sourceFolders.forEach((entry, index) => {
       const row = tpl.content.firstElementChild.cloneNode(true);
       row.querySelector('[data-field="path"]').value = entry.path || "";
-      row.querySelector('[data-field="weight"]').value = entry.weight;
+      row.querySelector('[data-field="weight"]').value = Number(entry.weight || 0).toFixed(2);
       row.querySelectorAll("[data-field]").forEach((input) => {
         input.addEventListener("input", () => {
           const val = input.dataset.field === "weight" ? Number(input.value) : input.value;
           entry[input.dataset.field] = val;
           if (input.dataset.field === "weight") updateFolderWeightTotal();
-          if (input.dataset.field === "path") refreshVideoCount(entry.path, row);
+          if (input.dataset.field === "path") scheduleVideoCount(entry.path, row);
           scheduleSave();
         });
       });
@@ -334,6 +339,11 @@
     span.textContent = `${n} vidéo${n === 1 ? "" : "s"}`;
   }
 
+  function scheduleVideoCount(path, row) {
+    clearTimeout(row._videoCountTimer);
+    row._videoCountTimer = setTimeout(() => refreshVideoCount(path, row), 400);
+  }
+
   function updateFolderWeightTotal() {
     const total = state.config.generate.sourceFolders.reduce((s, f) => s + (Number(f.weight) || 0), 0);
     const el = $("#folderWeightTotal");
@@ -351,7 +361,7 @@
       const row = tpl.content.firstElementChild.cloneNode(true);
       row.querySelector('[data-field="name"]').value = entry.name || "";
       row.querySelector('[data-field="beats"]').value = entry.beats;
-      row.querySelector('[data-field="probability"]').value = entry.probability;
+      row.querySelector('[data-field="probability"]').value = Number(entry.probability || 0).toFixed(2);
       row.querySelectorAll("[data-field]").forEach((input) => {
         input.addEventListener("input", () => {
           const field = input.dataset.field;

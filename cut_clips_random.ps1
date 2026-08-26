@@ -5,6 +5,7 @@ $ffprobePath = $FfprobePath
 
 $finalVideoDuration = 80   # 80 minutes
 $editsFolder = Join-Path $MixHome "edits\Projet_VHS_Glitch_ALL_poids"
+$outputFileName = "final_mix.mp4"
 
 # DOSSIERS SOURCES AVEC POIDS (0.0 a 1.0) - par defaut sous $MixHome\downloads\...
 # (voir resolve_tools.ps1), a adapter aux dossiers reellement telecharges.
@@ -135,24 +136,29 @@ Write-Host "(Cela peut prendre 30-45 minutes selon votre CPU)"
 Write-Host ""
 
 $startTime = Get-Date
+$durationCache = @{}   # video path -> duration, avoids re-probing the same video every time it's picked again
 
 while ($secondsAccumulated -lt $targetSeconds) {
     # Choisir un DOSSIER selon les poids
     $selectedFolder = Get-RandomFolder $sourceFolders $videosByFolder
     $folderVideos = $videosByFolder[$selectedFolder]
-    
+
     if ($folderVideos.Count -eq 0) { continue }
-    
+
     # Choisir une video ALEATOIREMENT dans le dossier choisi
     $video = $folderVideos | Get-Random
-    
+
     if ($secondsAccumulated -ge $targetSeconds) { break }
-    
-    # Recuperer infos de la video
-    $durationOutput = & $ffprobePath -v error -show_entries format=duration -of csv=p=0 "$video"
-    if (-not $durationOutput) { continue }
-    
-    $duration = [double]$durationOutput
+
+    # Recuperer infos de la video (avec cache)
+    if ($durationCache.ContainsKey($video)) {
+        $duration = $durationCache[$video]
+    } else {
+        $durationOutput = & $ffprobePath -v error -show_entries format=duration -of csv=p=0 "$video"
+        if (-not $durationOutput) { continue }
+        $duration = [double]$durationOutput
+        $durationCache[$video] = $duration
+    }
     
     # CHOISIR UN TYPE DE CLIP ALEATOIREMENT
     $selectedType = Get-RandomClipType $clipTypes
@@ -179,7 +185,7 @@ while ($secondsAccumulated -lt $targetSeconds) {
         -ss $start -t $clipDuration `
         -vf "scale=$width`:$height`:force_original_aspect_ratio=decrease,pad=$width`:$height`:(ow-iw)/2:(oh-ih)/2,fps=$fps" `
         -c:v libx264 -preset ultrafast -crf 23 `
-        -c:a aac -b:a 128k `
+        -an `
         "$clipName" 2>&1 | Out-Null
     
     if (Test-Path $clipName) {
@@ -213,7 +219,10 @@ foreach ($clip in $cuts) {
 $stream.Close()
 
 Write-Host "[EN COURS] Concatenation des $($cuts.Count) clips..."
-$finalOutput = Join-Path $editsFolder "final_mix.mp4"
+$finalOutput = Get-UniqueOutputPath (Join-Path $editsFolder $outputFileName)
+if ((Split-Path $finalOutput -Leaf) -ne $outputFileName) {
+    Write-Host "[INFO] Le fichier existait deja, sortie renommee : $(Split-Path $finalOutput -Leaf)" -ForegroundColor Yellow
+}
 
 & $ffmpegPath -f concat -safe 0 -i $concatFile -c copy "$finalOutput"
 

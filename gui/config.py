@@ -42,6 +42,7 @@ DEFAULT_CONFIG = {
     },
     "generate": {
         "editsFolder": "%USERPROFILE%/Videos/VHS-Glitch-Mix/edits/Projet_VHS_Glitch",
+        "outputFileName": "final_mix.mp4",
         "finalVideoDurationMinutes": 80,
         "sourceFolders": [{"path": "", "weight": 0.25}],
         "skipStart": 5,
@@ -90,19 +91,22 @@ def load_config() -> dict:
 
 
 def normalize_weights(items: list[dict], key: str) -> tuple[list[dict], str | None]:
-    """Normalize items[key] to sum to 1.0. Returns (items, warning_message|None)."""
+    """Normalize items[key] to sum to 1.0, always rounded to 2 decimal places (matches the
+    number inputs' step="0.01" in the UI). Returns (items, warning_message|None)."""
     if not items:
         return items, None
     total = sum(float(item.get(key, 0)) for item in items)
     if total <= 0:
-        equal = round(1.0 / len(items), 4)
+        equal = round(1.0 / len(items), 2)
         for item in items:
             item[key] = equal
         return items, "Les poids étaient à 0 — répartis équitablement."
     if abs(total - 1.0) > 0.01:
         for item in items:
-            item[key] = round(float(item.get(key, 0)) / total, 4)
+            item[key] = round(float(item.get(key, 0)) / total, 2)
         return items, f"Les poids ne totalisaient pas 100% (total {total * 100:.1f}%) — normalisés."
+    for item in items:
+        item[key] = round(float(item.get(key, 0)), 2)
     return items, None
 
 

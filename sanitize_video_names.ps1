@@ -43,18 +43,30 @@ foreach ($playlist in $playlists) {
     # Telecharger en 480p (bv*+ba : YouTube ne fournit quasiment plus de flux pre-merges
     # au-dela de 360p, "best[height<=480]" seul echoue desormais avec "Requested format
     # is not available" sur la plupart des videos). --merge-output-format force mp4 car
-    # les scripts suivants ne scannent que *.mp4.
+    # les scripts suivants ne scannent que *.mp4. --download-archive fait qu'un re-lancement
+    # sur la meme playlist ne re-telecharge que les videos absentes de l'archive (suivi par
+    # ID video, insensible au renommage ci-dessous) - un fichier d'archive par dossier.
     $ffmpegDir = Split-Path $FfmpegPath -Parent
-    & $YtDlpPath -f "bv*[height<=480]+ba/b[height<=480]" --merge-output-format mp4 --ffmpeg-location "$ffmpegDir" -o "$outputDir/%(title)s.%(ext)s" -i "$($playlist.playlistUrl)"
-    
+    $archiveFile = Join-Path $outputDir ".download_archive.txt"
+    & $YtDlpPath -f "bv*[height<=480]+ba/b[height<=480]" --merge-output-format mp4 --ffmpeg-location "$ffmpegDir" --download-archive "$archiveFile" -o "$outputDir/%(title)s.%(ext)s" -i "$($playlist.playlistUrl)"
+
     # Renommer les fichiers - STRICT (pas d'espaces, pas de caracteres speciaux)
+    # (le fichier d'archive est exclu : le renommer casserait le suivi au prochain lancement)
     Write-Host "Nettoyage des noms..." -ForegroundColor Yellow
-    Get-ChildItem -Path $outputDir -File | ForEach-Object {
-        $newName = $_.BaseName `
+    Get-ChildItem -Path $outputDir -File | Where-Object { $_.Name -ne ".download_archive.txt" } | ForEach-Object {
+        $newStem = $_.BaseName `
             -replace '[^\w]', '' `
             -replace '^_+|_+$', ''
-        $newName = $newName + $_.Extension
+        $newName = $newStem + $_.Extension
         if ($newName -ne $_.Name) {
+            # Sanitizing strips spaces/punctuation, so two differently-titled videos can
+            # collide onto the same sanitized name - disambiguate instead of letting
+            # Rename-Item fail on an existing target.
+            $n = 2
+            while (Test-Path (Join-Path $outputDir $newName)) {
+                $newName = "$newStem`_$n$($_.Extension)"
+                $n++
+            }
             Rename-Item -LiteralPath $_.FullName -NewName $newName
             Write-Host "  OK - $($_.Name) -> $newName" -ForegroundColor Gray
         }

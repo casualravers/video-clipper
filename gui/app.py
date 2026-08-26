@@ -22,7 +22,7 @@ def main() -> None:
         min_size=(1000, 700),
         background_color="#0d0d0f",
     )
-    api.window = window
+    api._window = window
     window.events.closing += api.on_window_closing
     webview.start(gui="edgechromium", debug=False)
 

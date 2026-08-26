@@ -93,3 +93,17 @@ def is_progress_field(line: str) -> bool:
 
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+def unique_path(path: Path) -> Path:
+    """If path already exists, append _2, _3, ... before the extension until a free one is
+    found — used for every final output file so re-running a job never silently overwrites
+    a previous result."""
+    if not path.exists():
+        return path
+    n = 2
+    while True:
+        candidate = path.with_name(f"{path.stem}_{n}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+        n += 1

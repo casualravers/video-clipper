@@ -36,3 +36,21 @@ $YtDlpPath = Resolve-ToolPath "yt-dlp.exe" "yt-dlp"
 # things live unless the user overrides it below. Override by setting $env:VHS_MIX_HOME
 # before running a script, or by editing the path directly in the script's CONFIGURATION block.
 $MixHome = if ($env:VHS_MIX_HOME) { $env:VHS_MIX_HOME } else { Join-Path $env:USERPROFILE "Videos\VHS-Glitch-Mix" }
+
+# If Path already exists, append _2, _3, ... before the extension until a free one is found -
+# so re-running a script never silently overwrites a previous final output.
+function Get-UniqueOutputPath {
+    param([Parameter(Mandatory)] [string] $Path)
+
+    if (-not (Test-Path $Path)) { return $Path }
+
+    $dir = Split-Path $Path -Parent
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+    $ext = [System.IO.Path]::GetExtension($Path)
+    $n = 2
+    while ($true) {
+        $candidate = Join-Path $dir "$stem`_$n$ext"
+        if (-not (Test-Path $candidate)) { return $candidate }
+        $n++
+    }
+}

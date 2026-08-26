@@ -13,7 +13,7 @@ from pipeline import download, effects, ffmpeg_utils, generate
 
 class Api:
     def __init__(self) -> None:
-        self.window = None
+        self._window = None
         self.jobs = JobManager()
         self._config = app_config.load_config()
 
@@ -30,24 +30,24 @@ class Api:
     # ---- filesystem dialogs ----
 
     def browse_folder(self, current_path: str = "") -> str | None:
-        if self.window is None:
+        if self._window is None:
             return None
         import webview
 
         start_dir = current_path if current_path and Path(current_path).is_dir() else str(Path.home())
-        result = self.window.create_file_dialog(webview.FOLDER_DIALOG, directory=start_dir)
+        result = self._window.create_file_dialog(webview.FOLDER_DIALOG, directory=start_dir)
         if result:
             return result[0]
         return None
 
     def browse_file(self, current_path: str = "", file_types: list[str] | None = None) -> str | None:
-        if self.window is None:
+        if self._window is None:
             return None
         import webview
 
         start_dir = str(Path(current_path).parent) if current_path and Path(current_path).exists() else str(Path.home())
         types = tuple(file_types) if file_types else ("Fichiers vidéo (*.mp4;*.mkv;*.mov)", "Tous les fichiers (*.*)")
-        result = self.window.create_file_dialog(webview.OPEN_DIALOG, directory=start_dir, file_types=types)
+        result = self._window.create_file_dialog(webview.OPEN_DIALOG, directory=start_dir, file_types=types)
         if result:
             return result[0]
         return None

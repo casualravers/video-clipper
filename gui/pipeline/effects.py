@@ -33,6 +33,11 @@ def run_effect_job(
     if not Path(input_video).is_file():
         raise ValueError(f"Vidéo d'entrée introuvable : {input_video}")
 
+    unique_output = ffmpeg_utils.unique_path(Path(output_video))
+    if unique_output.name != Path(output_video).name:
+        on_log(f"[INFO] Le fichier existait déjà, sortie renommée : {unique_output.name}")
+    output_video = str(unique_output)
+
     duration = ffmpeg_utils.probe_duration(ffprobe_path, input_video) or 0.0
 
     if effect == "datamosh":

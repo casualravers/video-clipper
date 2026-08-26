@@ -7,7 +7,7 @@ $editsFolder = Join-Path $MixHome "edits\Projet_VHS_Glitch_ALL_poids"
 $inputVideo = Join-Path $editsFolder "final_mix.mp4"
 
 # VIDEO DE SORTIE
-$outputVideo = Join-Path $editsFolder "final_mix_glitch.mp4"
+$outputVideo = Get-UniqueOutputPath (Join-Path $editsFolder "final_mix_glitch.mp4")
 
 # ======== EFFET GLITCH LEGER ========
 # Combine :

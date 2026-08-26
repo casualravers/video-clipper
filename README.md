@@ -74,7 +74,7 @@ Casual_Ravers - RANDOM  (30% utilisation)
 **Ce que ça fait** :
 - Découpe des clips de durée aléatoire (synchronisés au BPM 150)
 - Réassemble aléatoirement pour faire 80 minutes
-- Génère 1920x1080, 30fps, H.264
+- Génère 1920x1080, 30fps, H.264, **sans piste audio** (le mix final n'a pas besoin de son — pensé pour être mixé/projeté avec sa propre source audio)
 
 **Types de clips générés** (4/8/16/32 beats au tempo 150 BPM) :
 ```
